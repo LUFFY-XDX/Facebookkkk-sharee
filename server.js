@@ -1,58 +1,62 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const puppeteer = require('puppeteer-extra');
-const stealthPlugin = require('puppeteer-extra-plugin-stealth');
+const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 const path = require('path');
-puppeteer.use(stealthPlugin());
+
+puppeteer.use(StealthPlugin());
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(bodyParser.json());
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static('public'));
 
 app.post('/share', async (req, res) => {
   const { appState, postUrl, count, delay } = req.body;
 
-  if (!Array.isArray(appState) || !postUrl || !count || !delay) {
-    return res.status(400).json({ success: false, message: 'Missing required fields' });
+  if (!appState || !postUrl || !count || !delay) {
+    return res.status(400).json({ error: 'Missing fields' });
   }
 
-  const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox'] });
-  const page = await browser.newPage();
-
-  const cookies = appState.map(cookie => ({
-    name: cookie.key,
-    value: cookie.value,
-    domain: cookie.domain,
-    path: cookie.path,
-    httpOnly: cookie.httpOnly || false,
-    secure: cookie.secure || false
-  }));
-
-  await page.setCookie(...cookies);
-
+  let browser;
   try {
+    browser = await puppeteer.launch({
+      headless: true,
+      args: ['--no-sandbox'],
+    });
+    const page = await browser.newPage();
+
+    const cookies = JSON.parse(appState);
+    await page.setCookie(...cookies);
+
     await page.goto('https://www.facebook.com', { waitUntil: 'networkidle2' });
 
-    const postId = postUrl.split('/').pop().split('?')[0];
-    const shareLink = `https://www.facebook.com/sharer/sharer.php?u=https://www.facebook.com/${postId}`;
+    const results = [];
 
     for (let i = 0; i < count; i++) {
-      const newPage = await browser.newPage();
-      await newPage.setCookie(...cookies);
-      await newPage.goto(shareLink, { waitUntil: 'networkidle2' });
-      await newPage.waitForTimeout(2000);
-      await newPage.click('button[name="__CONFIRM__"]');
-      await newPage.close();
-      await page.waitForTimeout(delay * 1000);
+      try {
+        await page.goto(postUrl, { waitUntil: 'networkidle2' });
+
+        await page.waitForSelector('[aria-label="Send this to friends or post it on your timeline."]', { timeout: 10000 });
+        await page.click('[aria-label="Send this to friends or post it on your timeline."]');
+
+        await page.waitForSelector('[aria-label="Share now (Public)"], [aria-label="Share now"]', { timeout: 10000 });
+        await page.click('[aria-label="Share now (Public)"], [aria-label="Share now"]');
+
+        results.push(`Share ${i + 1} success`);
+      } catch (err) {
+        results.push(`Share ${i + 1} failed: ${err.message}`);
+      }
+
+      await new Promise(r => setTimeout(r, delay * 1000));
     }
 
-    await browser.close();
-    res.json({ success: true, message: 'Shares complete' });
+    res.json({ status: 'completed', results });
   } catch (err) {
-    await browser.close();
-    res.status(500).json({ success: false, message: err.message });
+    res.status(500).json({ error: err.message });
+  } finally {
+    if (browser) await browser.close();
   }
 });
 
