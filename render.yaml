@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: fb-auto-share
+    env: node
+    buildCommand: PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_OPTIONS
+        value: "--max-old-space-size=512"
