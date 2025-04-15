@@ -1,69 +1,89 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>FB Auto Share</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Facebook AutoShare</title>
   <style>
     body {
-      background: #0f0f0f;
-      color: white;
-      font-family: Arial, sans-serif;
-      text-align: center;
-      padding: 20px;
+      background: #000;
+      color: #0f0;
+      font-family: monospace;
+      padding: 30px;
     }
     input, textarea, button {
-      width: 90%;
-      margin: 10px 0;
+      display: block;
+      margin-top: 20px;
+      width: 100%;
+      background: #111;
+      border: 1px solid #0f0;
+      color: #0f0;
       padding: 10px;
-      font-size: 1em;
-      border: none;
-      border-radius: 5px;
-    }
-    button {
-      background: #00ff99;
-      color: #000;
-      font-weight: bold;
-      cursor: pointer;
     }
     textarea {
       height: 200px;
     }
-    .notice {
-      font-size: 0.9em;
-      color: red;
+    .warn {
+      color: yellow;
+      font-size: 14px;
     }
   </style>
 </head>
 <body>
-  <h2>Facebook Post Auto Share</h2>
-  <p class="notice">Short delay may cause account block!</p>
-  <textarea id="appstate" placeholder="Paste your AppState JSON here"></textarea><br>
-  <input type="text" id="postUrl" placeholder="Facebook Post URL"><br>
-  <input type="number" id="count" placeholder="Number of Shares"><br>
-  <input type="number" id="delay" placeholder="Delay in seconds"><br>
-  <button onclick="share()">Start Sharing</button>
-  <p id="status"></p>
+  <h1>Facebook Post AutoShare Tool</h1>
+  <form id="shareForm">
+    <label for="appState">Your Facebook AppState:</label>
+    <textarea id="appState" name="appState" required></textarea>
+
+    <label for="postUrl">Facebook Post URL:</label>
+    <input type="text" id="postUrl" name="postUrl" required />
+
+    <label for="count">How many times to share?</label>
+    <input type="number" id="count" name="count" min="1" required />
+
+    <label for="delay">Delay between shares (in seconds):</label>
+    <input type="number" id="delay" name="delay" min="1" required />
+
+    <p class="warn">Short delay might cause Facebook to block your account.</p>
+
+    <button type="submit">Start Sharing</button>
+  </form>
+
+  <pre id="result"></pre>
 
   <script>
-    function share() {
-      document.getElementById('status').innerText = 'Sending request to backend...';
-      fetch('/share', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          appState: JSON.parse(document.getElementById('appstate').value),
-          postUrl: document.getElementById('postUrl').value,
-          count: parseInt(document.getElementById('count').value),
-          delay: parseInt(document.getElementById('delay').value)
-        })
-      })
-      .then(response => response.json())
-      .then(data => {
-        document.getElementById('status').innerText = data.message;
-      })
-      .catch(error => {
-        document.getElementById('status').innerText = 'Error: ' + error.message;
-      });
-    }
+    document.getElementById('shareForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = e.target.querySelector('button');
+      btn.disabled = true;
+      btn.innerText = 'Sharing...';
+
+      const resEl = document.getElementById('result');
+      resEl.textContent = 'Sending request to backend...';
+
+      try {
+        const res = await fetch('/share', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            appState: document.getElementById('appState').value,
+            postUrl: document.getElementById('postUrl').value,
+            count: document.getElementById('count').value,
+            delay: document.getElementById('delay').value,
+          }),
+        });
+
+        const data = await res.json();
+        resEl.textContent = JSON.stringify(data, null, 2);
+      } catch (err) {
+        resEl.textContent = 'Error: ' + err.message;
+      }
+
+      btn.disabled = false;
+      btn.innerText = 'Start Sharing';
+    });
   </script>
 </body>
 </html>
