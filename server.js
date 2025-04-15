@@ -1,72 +1,61 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const puppeteer = require('puppeteer-extra');
-const StealthPlugin = require('puppeteer-extra-plugin-stealth');
+const stealthPlugin = require('puppeteer-extra-plugin-stealth');
 const path = require('path');
+puppeteer.use(stealthPlugin());
 
-puppeteer.use(StealthPlugin());
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
 app.post('/share', async (req, res) => {
-  const { appstate, postUrl, shares, delay } = req.body;
+  const { appState, postUrl, count, delay } = req.body;
 
-  if (!appstate || !postUrl || !shares || !delay) {
-    return res.status(400).json({ error: 'Missing required fields' });
+  if (!Array.isArray(appState) || !postUrl || !count || !delay) {
+    return res.status(400).json({ success: false, message: 'Missing required fields' });
   }
 
-  const cookies = typeof appstate === 'string' ? JSON.parse(appstate) : appstate;
+  const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox'] });
+  const page = await browser.newPage();
+
+  const cookies = appState.map(cookie => ({
+    name: cookie.key,
+    value: cookie.value,
+    domain: cookie.domain,
+    path: cookie.path,
+    httpOnly: cookie.httpOnly || false,
+    secure: cookie.secure || false
+  }));
+
+  await page.setCookie(...cookies);
 
   try {
-    const browser = await puppeteer.launch({
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
-    });
-    const page = await browser.newPage();
+    await page.goto('https://www.facebook.com', { waitUntil: 'networkidle2' });
 
-    await page.setCookie(...cookies);
-    await page.goto('https://facebook.com', { waitUntil: 'domcontentloaded' });
+    const postId = postUrl.split('/').pop().split('?')[0];
+    const shareLink = `https://www.facebook.com/sharer/sharer.php?u=https://www.facebook.com/${postId}`;
 
-    for (let i = 0; i < shares; i++) {
-      console.log(`Sharing #${i + 1}`);
-
-      await page.goto(postUrl, { waitUntil: 'domcontentloaded' });
-
-      
-      await page.waitForSelector('div[aria-label="Share"]', { timeout: 10000 });
-      await page.click('div[aria-label="Share"]');
-
-      
-      await page.waitForTimeout(1000);
-      await page.evaluate(() => {
-        const shareOptions = [...document.querySelectorAll('span')].find(
-          el => el.textContent.includes('Share now') || el.textContent.includes('Share to Feed')
-        );
-        if (shareOptions) shareOptions.click();
-      });
-
-      
+    for (let i = 0; i < count; i++) {
+      const newPage = await browser.newPage();
+      await newPage.setCookie(...cookies);
+      await newPage.goto(shareLink, { waitUntil: 'networkidle2' });
+      await newPage.waitForTimeout(2000);
+      await newPage.click('button[name="__CONFIRM__"]');
+      await newPage.close();
       await page.waitForTimeout(delay * 1000);
     }
 
     await browser.close();
-    return res.json({ success: true, message: 'Post shared successfully.' });
-
+    res.json({ success: true, message: 'Shares complete' });
   } catch (err) {
-    console.error('Error:', err);
-    return res.status(500).json({ error: 'Something went wrong. Make sure AppState and post URL are valid.' });
+    await browser.close();
+    res.status(500).json({ success: false, message: err.message });
   }
 });
 
 app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
+  console.log(`Server running on http://localhost:${PORT}`);
 });
