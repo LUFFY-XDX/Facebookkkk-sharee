@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Facebook Auto Share</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      background: linear-gradient(135deg, #0f0f0f, #1a1a1a);
+      font-family: 'Segoe UI', sans-serif;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+
+    .container {
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(0, 255, 224, 0.2);
+      backdrop-filter: blur(20px);
+      box-shadow: 0 0 20px #00ffe0a1;
+      padding: 30px;
+      border-radius: 20px;
+      max-width: 600px;
+      width: 100%;
+      animation: fadeIn 1s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: scale(0.95); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    h2 {
+      text-align: center;
+      color: #00ffe0;
+      margin-bottom: 10px;
+    }
+
+    .warning {
+      background: rgba(255, 50, 50, 0.1);
+      border: 1px solid rgba(255, 0, 0, 0.2);
+      color: #ff4e4e;
+      padding: 8px;
+      border-radius: 10px;
+      font-size: 13px;
+      text-align: center;
+      margin-bottom: 15px;
+    }
+
+    textarea, input {
+      width: 100%;
+      padding: 12px;
+      margin: 10px 0;
+      border: none;
+      border-radius: 10px;
+      background: #1a1a1a;
+      color: #00ffe0;
+      font-size: 14px;
+      resize: none;
+    }
+
+    textarea#logs {
+      height: 100px;
+      background: #111;
+      color: #0f0;
+      font-size: 12px;
+    }
+
+    input[type="file"] {
+      color: #aaa;
+      font-size: 12px;
+      padding: 5px;
+      background: transparent;
+      border: none;
+    }
+
+    button {
+      width: 100%;
+      padding: 15px;
+      background: #00ffe0;
+      color: #000;
+      font-weight: bold;
+      font-size: 16px;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: 0.3s ease;
+    }
+
+    button:hover {
+      background: #00e6c7;
+    }
+
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Facebook Auto Share</h2>
+    <div class="warning">Warning: Short delays may lead to account blocks.</div>
+
+    <label for="fileInput">Upload AppState JSON:</label>
+    <input type="file" id="fileInput" accept=".json" />
+    <textarea id="appstate" placeholder="Or paste AppState JSON here"></textarea>
+    
+    <input type="text" id="postUrl" placeholder="Facebook Post URL" />
+    <input type="number" id="amount" placeholder="Number of Shares" />
+    <input type="number" id="delay" placeholder="Delay between shares (seconds)" />
+    <textarea id="message" placeholder="Optional share message"></textarea>
+    
+    <button onclick="sharePost()">Start Sharing</button>
+    <textarea id="logs" readonly placeholder="Logs..."></textarea>
+  </div>
+
+  <script>
+    let logBox = document.getElementById("logs");
+
+    document.getElementById("fileInput").addEventListener("change", function(event) {
+      const file = event.target.files[0];
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        document.getElementById("appstate").value = e.target.result;
+      };
+      if (file) reader.readAsText(file);
+    });
+
+    function log(msg) {
+      logBox.value += msg + "\n";
+      logBox.scrollTop = logBox.scrollHeight;
+    }
+
+    async function sharePost() {
+      const appstate = document.getElementById("appstate").value;
+      const postUrl = document.getElementById("postUrl").value;
+      const amount = parseInt(document.getElementById("amount").value);
+      const delay = parseInt(document.getElementById("delay").value);
+      const message = document.getElementById("message").value;
+
+      if (!appstate || !postUrl || !amount || !delay) {
+        alert("Please fill in all fields.");
+        return;
+      }
+
+      logBox.value = "Sending request to backend...\n";
+
+      try {
+        const response = await fetch("/api/share", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            appstate: JSON.parse(appstate),
+            postUrl, amount, delay, message
+          })
+        });
+
+        const result = await response.json();
+        log(result.message || "Done.");
+      } catch (error) {
+        log("Error: " + error.message);
+      }
+    }
+  </script>
+</body>
+</html>
