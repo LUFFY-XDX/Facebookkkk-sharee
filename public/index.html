@@ -1,170 +1,68 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Facebook Auto Share</title>
+  <title>FB Auto Share</title>
   <style>
-    * {
-      box-sizing: border-box;
-    }
-
     body {
-      margin: 0;
-      padding: 0;
-      background: linear-gradient(135deg, #0f0f0f, #1a1a1a);
-      font-family: 'Segoe UI', sans-serif;
-      color: #fff;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-    }
-
-    .container {
-      background: rgba(0, 0, 0, 0.3);
-      border: 1px solid rgba(0, 255, 224, 0.2);
-      backdrop-filter: blur(20px);
-      box-shadow: 0 0 20px #00ffe0a1;
-      padding: 30px;
-      border-radius: 20px;
-      max-width: 600px;
-      width: 100%;
-      animation: fadeIn 1s ease;
-    }
-
-    @keyframes fadeIn {
-      from { opacity: 0; transform: scale(0.95); }
-      to { opacity: 1; transform: scale(1); }
-    }
-
-    h2 {
+      background: #0f0f0f;
+      color: white;
+      font-family: Arial, sans-serif;
       text-align: center;
-      color: #00ffe0;
-      margin-bottom: 10px;
+      padding: 20px;
     }
-
-    .warning {
-      background: rgba(255, 50, 50, 0.1);
-      border: 1px solid rgba(255, 0, 0, 0.2);
-      color: #ff4e4e;
-      padding: 8px;
-      border-radius: 10px;
-      font-size: 13px;
-      text-align: center;
-      margin-bottom: 15px;
-    }
-
-    textarea, input {
-      width: 100%;
-      padding: 12px;
+    input, textarea, button {
+      width: 90%;
       margin: 10px 0;
+      padding: 10px;
+      font-size: 1em;
       border: none;
-      border-radius: 10px;
-      background: #1a1a1a;
-      color: #00ffe0;
-      font-size: 14px;
-      resize: none;
+      border-radius: 5px;
     }
-
-    textarea#logs {
-      height: 100px;
-      background: #111;
-      color: #0f0;
-      font-size: 12px;
-    }
-
-    input[type="file"] {
-      color: #aaa;
-      font-size: 12px;
-      padding: 5px;
-      background: transparent;
-      border: none;
-    }
-
     button {
-      width: 100%;
-      padding: 15px;
-      background: #00ffe0;
+      background: #00ff99;
       color: #000;
       font-weight: bold;
-      font-size: 16px;
-      border: none;
-      border-radius: 10px;
       cursor: pointer;
-      transition: 0.3s ease;
     }
-
-    button:hover {
-      background: #00e6c7;
+    textarea {
+      height: 200px;
     }
-
+    .notice {
+      font-size: 0.9em;
+      color: red;
+    }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h2>Facebook Auto Share</h2>
-    <div class="warning">Warning: Short delays may lead to account blocks.</div>
-
-    <label for="fileInput">Upload AppState JSON:</label>
-    <input type="file" id="fileInput" accept=".json" />
-    <textarea id="appstate" placeholder="Or paste AppState JSON here"></textarea>
-    
-    <input type="text" id="postUrl" placeholder="Facebook Post URL" />
-    <input type="number" id="amount" placeholder="Number of Shares" />
-    <input type="number" id="delay" placeholder="Delay between shares (seconds)" />
-    <textarea id="message" placeholder="Optional share message"></textarea>
-    
-    <button onclick="sharePost()">Start Sharing</button>
-    <textarea id="logs" readonly placeholder="Logs..."></textarea>
-  </div>
+  <h2>Facebook Post Auto Share</h2>
+  <p class="notice">Short delay may cause account block!</p>
+  <textarea id="appstate" placeholder="Paste your AppState JSON here"></textarea><br>
+  <input type="text" id="postUrl" placeholder="Facebook Post URL"><br>
+  <input type="number" id="count" placeholder="Number of Shares"><br>
+  <input type="number" id="delay" placeholder="Delay in seconds"><br>
+  <button onclick="share()">Start Sharing</button>
+  <p id="status"></p>
 
   <script>
-    let logBox = document.getElementById("logs");
-
-    document.getElementById("fileInput").addEventListener("change", function(event) {
-      const file = event.target.files[0];
-      const reader = new FileReader();
-      reader.onload = function(e) {
-        document.getElementById("appstate").value = e.target.result;
-      };
-      if (file) reader.readAsText(file);
-    });
-
-    function log(msg) {
-      logBox.value += msg + "\n";
-      logBox.scrollTop = logBox.scrollHeight;
-    }
-
-    async function sharePost() {
-      const appstate = document.getElementById("appstate").value;
-      const postUrl = document.getElementById("postUrl").value;
-      const amount = parseInt(document.getElementById("amount").value);
-      const delay = parseInt(document.getElementById("delay").value);
-      const message = document.getElementById("message").value;
-
-      if (!appstate || !postUrl || !amount || !delay) {
-        alert("Please fill in all fields.");
-        return;
-      }
-
-      logBox.value = "Sending request to backend...\n";
-
-      try {
-        const response = await fetch("/api/share", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            appstate: JSON.parse(appstate),
-            postUrl, amount, delay, message
-          })
-        });
-
-        const result = await response.json();
-        log(result.message || "Done.");
-      } catch (error) {
-        log("Error: " + error.message);
-      }
+    function share() {
+      document.getElementById('status').innerText = 'Sending request to backend...';
+      fetch('/share', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          appState: JSON.parse(document.getElementById('appstate').value),
+          postUrl: document.getElementById('postUrl').value,
+          count: parseInt(document.getElementById('count').value),
+          delay: parseInt(document.getElementById('delay').value)
+        })
+      })
+      .then(response => response.json())
+      .then(data => {
+        document.getElementById('status').innerText = data.message;
+      })
+      .catch(error => {
+        document.getElementById('status').innerText = 'Error: ' + error.message;
+      });
     }
   </script>
 </body>
